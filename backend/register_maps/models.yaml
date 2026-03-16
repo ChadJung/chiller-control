@@ -1,0 +1,40 @@
+# === Chiller Model Catalog ===
+# Available chiller models and their register map files.
+# To add a new model: create a YAML register map file and add an entry here.
+
+models:
+  - id: "lg_scroll_chiller"
+    manufacturer: "LG"
+    name: "Air-Cooled Scroll Chiller"
+    name_ko: "LG 공랭식 스크롤 칠러"
+    series: "ACHH / ACAH"
+    register_map: "register_maps/lg_scroll_chiller.yaml"
+    comm_spec:
+      protocol: "Modbus RTU"
+      baudrate: 9600
+      data_bits: 8
+      parity: "None"
+      stop_bits: 1
+      rs485_terminal: "CH4 (A, B)"
+      slave_id_range: "1~247"
+    notes: "원격 모드 설정 필요: SYS1→DIST, SYS2→BUS"
+
+  - id: "default_test"
+    manufacturer: "Test"
+    name: "Default Test Chiller"
+    name_ko: "테스트용 가상 냉동기"
+    series: "TEST-100"
+    register_map: "register_maps/chiller_default.yaml"
+    comm_spec:
+      protocol: "Modbus RTU"
+      baudrate: 9600
+      data_bits: 8
+      parity: "None"
+      stop_bits: 1
+    notes: "시뮬레이터 테스트용"
+
+# === How to add a new model ===
+# 1. Create a new YAML register map file in register_maps/
+# 2. Add an entry to this file with the model info
+# 3. Restart the server (or use the API to reload)
+# 4. The new model will appear in the model selection UI
