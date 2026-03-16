@@ -1,13 +1,13 @@
 """
 Device Admin API - add, edit, delete devices via web UI.
-Changes are saved to devices.yaml. Server restart required for connection changes.
 POST   /api/admin/devices           - add device
 PUT    /api/admin/devices/{id}      - edit device
 DELETE /api/admin/devices/{id}      - delete device
 GET    /api/admin/models            - list available models
+POST   /api/admin/reload            - hot-reload all devices (no server restart)
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional
@@ -210,4 +210,16 @@ async def delete_device(device_id: str):
         "status": "ok",
         "message": f"'{name}' 삭제 완료",
         "restart_required": True,
+    }
+
+
+@router.post("/reload")
+async def reload_devices(request: Request):
+    """Hot-reload: re-read devices.yaml and restart all connections without server restart."""
+    dm = request.app.state.device_manager
+    await dm.reload()
+    return {
+        "status": "ok",
+        "message": f"리로드 완료 - {dm.device_count}대 연결됨",
+        "device_count": dm.device_count,
     }

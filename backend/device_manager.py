@@ -130,6 +130,16 @@ class DeviceManager:
                 error=str(e),
             )
 
+    async def reload(self):
+        """Hot-reload: stop all devices, re-read config, restart."""
+        logger.info("Hot-reloading devices...")
+        self.stop_all()
+        await asyncio.sleep(1)
+        self._devices.clear()
+        self.load_configs()
+        await self.start_all()
+        logger.info(f"Hot-reload complete: {self.device_count} devices")
+
     def stop_all(self):
         """Stop all device pollers and connections."""
         for device_id, inst in self._devices.items():
