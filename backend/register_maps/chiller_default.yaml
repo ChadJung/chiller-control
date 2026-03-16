@@ -1,0 +1,323 @@
+# Default Chiller Register Map
+# Replace with actual register map from chiller manufacturer manual
+
+metadata:
+  manufacturer: "Default Chiller"
+  model: "TEST-100"
+  modbus_unit_id: 1
+  encoding: "big-endian"
+
+registers:
+  # === READ ONLY - Temperatures ===
+  - id: "supply_temp"
+    name: "Supply Temperature"
+    name_ko: "공급 온도"
+    address: 0x0000
+    function_code: 3
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read"
+    category: "temperature"
+
+  - id: "return_temp"
+    name: "Return Temperature"
+    name_ko: "귀환 온도"
+    address: 0x0001
+    function_code: 3
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read"
+    category: "temperature"
+
+  - id: "ambient_temp"
+    name: "Ambient Temperature"
+    name_ko: "외기 온도"
+    address: 0x0002
+    function_code: 3
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read"
+    category: "temperature"
+
+  # === READ ONLY - Pressure ===
+  - id: "high_pressure"
+    name: "High Pressure"
+    name_ko: "고압"
+    address: 0x0003
+    function_code: 3
+    data_type: "uint16"
+    scale: 0.1
+    unit: "kgf/cm²"
+    access: "read"
+    category: "pressure"
+
+  - id: "low_pressure"
+    name: "Low Pressure"
+    name_ko: "저압"
+    address: 0x0004
+    function_code: 3
+    data_type: "uint16"
+    scale: 0.1
+    unit: "kgf/cm²"
+    access: "read"
+    category: "pressure"
+
+  # === READ ONLY - Status ===
+  - id: "compressor1_status"
+    name: "Compressor #1 Status"
+    name_ko: "압축기 #1 상태"
+    address: 0x0010
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "status"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "compressor2_status"
+    name: "Compressor #2 Status"
+    name_ko: "압축기 #2 상태"
+    address: 0x0011
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "status"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "pump_status"
+    name: "Pump Status"
+    name_ko: "펌프 상태"
+    address: 0x0012
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "status"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "fan_status"
+    name: "Fan Status"
+    name_ko: "팬 상태"
+    address: 0x0013
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "status"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "operation_mode"
+    name: "Operation Mode"
+    name_ko: "운전 모드"
+    address: 0x0014
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "status"
+    enum:
+      0: "STOP"
+      1: "COOLING"
+      2: "HEATING"
+      3: "AUTO"
+
+  - id: "run_hours"
+    name: "Total Run Hours"
+    name_ko: "총 운전 시간"
+    address: 0x0015
+    function_code: 3
+    data_type: "uint16"
+    scale: 1
+    unit: "h"
+    access: "read"
+    category: "status"
+
+  # === READ ONLY - Alarms ===
+  - id: "alarm_code"
+    name: "Alarm Code"
+    name_ko: "알람 코드"
+    address: 0x0020
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "alarm"
+    alarm_map:
+      0: "Normal"
+      1: "High Temp Alarm"
+      2: "Low Temp Alarm"
+      3: "High Pressure Alarm"
+      4: "Low Pressure Alarm"
+      5: "Compressor Overload"
+      6: "Pump Fault"
+      7: "Sensor Fault"
+      8: "Communication Error"
+      10: "Emergency Stop"
+
+  - id: "alarm_history_1"
+    name: "Alarm History 1"
+    name_ko: "알람 이력 1"
+    address: 0x0021
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "alarm"
+
+  - id: "alarm_history_2"
+    name: "Alarm History 2"
+    name_ko: "알람 이력 2"
+    address: 0x0022
+    function_code: 3
+    data_type: "uint16"
+    access: "read"
+    category: "alarm"
+
+  # === READ/WRITE - Setpoints ===
+  - id: "setpoint_temp"
+    name: "Temperature Setpoint"
+    name_ko: "설정 온도"
+    address: 0x0100
+    function_code: 3
+    write_function_code: 6
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read_write"
+    min: -10.0
+    max: 35.0
+    category: "setpoint"
+
+  - id: "setpoint_high_temp"
+    name: "High Temp Alarm Setpoint"
+    name_ko: "고온 경보 설정"
+    address: 0x0101
+    function_code: 3
+    write_function_code: 6
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read_write"
+    min: 0.0
+    max: 50.0
+    category: "setpoint"
+
+  - id: "setpoint_low_temp"
+    name: "Low Temp Alarm Setpoint"
+    name_ko: "저온 경보 설정"
+    address: 0x0102
+    function_code: 3
+    write_function_code: 6
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read_write"
+    min: -20.0
+    max: 10.0
+    category: "setpoint"
+
+  - id: "setpoint_diff_temp"
+    name: "Temperature Differential"
+    name_ko: "온도 편차"
+    address: 0x0103
+    function_code: 3
+    write_function_code: 6
+    data_type: "int16"
+    scale: 0.1
+    unit: "°C"
+    access: "read_write"
+    min: 0.5
+    max: 5.0
+    category: "setpoint"
+
+  # === READ/WRITE - Control ===
+  - id: "power_command"
+    name: "Power ON/OFF"
+    name_ko: "전원 ON/OFF"
+    address: 0x0200
+    function_code: 3
+    write_function_code: 6
+    data_type: "uint16"
+    access: "read_write"
+    category: "control"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "mode_command"
+    name: "Mode Select"
+    name_ko: "모드 선택"
+    address: 0x0201
+    function_code: 3
+    write_function_code: 6
+    data_type: "uint16"
+    access: "read_write"
+    category: "control"
+    enum:
+      0: "STOP"
+      1: "COOLING"
+      2: "HEATING"
+      3: "AUTO"
+
+  - id: "alarm_reset"
+    name: "Alarm Reset"
+    name_ko: "알람 리셋"
+    address: 0x0202
+    function_code: 3
+    write_function_code: 6
+    data_type: "uint16"
+    access: "read_write"
+    category: "control"
+    enum:
+      0: "NORMAL"
+      1: "RESET"
+
+# === Polling Groups ===
+polling_groups:
+  - name: "fast"
+    interval_seconds: 2
+    registers:
+      - "supply_temp"
+      - "return_temp"
+      - "high_pressure"
+      - "low_pressure"
+      - "compressor1_status"
+      - "compressor2_status"
+      - "pump_status"
+      - "fan_status"
+      - "alarm_code"
+
+  - name: "medium"
+    interval_seconds: 10
+    registers:
+      - "ambient_temp"
+      - "operation_mode"
+      - "setpoint_temp"
+      - "power_command"
+      - "mode_command"
+
+  - name: "slow"
+    interval_seconds: 60
+    registers:
+      - "run_hours"
+      - "setpoint_high_temp"
+      - "setpoint_low_temp"
+      - "setpoint_diff_temp"
+      - "alarm_history_1"
+      - "alarm_history_2"
+      - "alarm_reset"
+
+  - name: "history"
+    interval_seconds: 60
+    log_to_db: true
+    registers:
+      - "supply_temp"
+      - "return_temp"
+      - "ambient_temp"
+      - "high_pressure"
+      - "low_pressure"

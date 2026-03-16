@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>냉동기 제어 시스템</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --card-border: #334155;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent: #38bdf8;
+            --green: #22c55e;
+            --red: #ef4444;
+            --orange: #f97316;
+            --yellow: #eab308;
+            --input-bg: rgba(255,255,255,0.05);
+            --hover-bg: rgba(255,255,255,0.03);
+            --equip-off: #475569;
+            --header-bg: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            --device-title-bg: linear-gradient(135deg, #1e3a5f 0%, #1a2744 100%);
+            --device-title-text: #e2e8f0;
+        }
+        [data-theme="light"] {
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --card-border: #e2e8f0;
+            --text: #1e293b;
+            --text-dim: #64748b;
+            --accent: #0284c7;
+            --green: #16a34a;
+            --red: #dc2626;
+            --orange: #ea580c;
+            --yellow: #ca8a04;
+            --input-bg: #f8fafc;
+            --hover-bg: #f8fafc;
+            --equip-off: #cbd5e1;
+            --header-bg: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+            --device-title-bg: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+            --device-title-text: #ffffff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 16px; font-weight: 600; color: #ffffff; }
+        .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: none;
+        }
+        .back-btn.visible { display: inline-block; }
+        .conn-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+        .conn-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+        }
+        .conn-dot.connected { background: var(--green); }
+
+        .content { padding: 12px; max-width: 900px; margin: 0 auto; }
+
+        /* ===== OVERVIEW PAGE ===== */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .overview-title {
+            font-size: 13px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .device-card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .device-card:hover { border-color: var(--accent); }
+        .device-card.alarm { border-color: var(--red); }
+        .device-card.disconnected { opacity: 0.5; }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: -16px -16px 12px -16px;
+            padding: 14px 16px;
+            background: var(--device-title-bg);
+            border-radius: 11px 11px 0 0;
+            color: var(--device-title-text);
+        }
+        .device-name { font-size: 16px; font-weight: 600; color: var(--device-title-text); }
+        .device-location { font-size: 12px; color: rgba(255,255,255,0.65); }
+        .device-status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-running { background: rgba(34,197,94,0.25); color: #4ade80; }
+        .badge-stopped { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+        .badge-alarm { background: rgba(239,68,68,0.3); color: #fca5a5; }
+        .badge-offline { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
+
+        .device-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .device-metric {
+            background: var(--hover-bg);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .metric-label { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; }
+        .metric-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .metric-unit { font-size: 10px; color: var(--text-dim); }
+
+        .device-equipment {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--input-bg);
+        }
+        .equip-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .equip-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--equip-off);
+        }
+        .equip-dot.on { background: var(--green); }
+
+        /* ===== DETAIL PAGE ===== */
+        /* Guide text */
+        .guide-text {
+            font-size: 12px;
+            color: var(--text-dim);
+            padding: 10px 16px;
+            text-align: center;
+            border-bottom: 1px solid var(--card-border);
+            background: var(--hover-bg);
+        }
+
+        /* Power status indicator */
+        .power-status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .power-status.on { background: rgba(34,197,94,0.12); color: var(--green); }
+        .power-status.off { background: var(--hover-bg); color: var(--text-dim); }
+
+        /* Setpoint stepper */
+        .stepper-wrap { display: flex; align-items: center; flex: 1; gap: 0; }
+        .stepper-btn {
+            width: 40px; height: 40px;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .stepper-btn:first-child { border-radius: 8px 0 0 8px; }
+        .stepper-btn:last-child { border-radius: 0 8px 8px 0; }
+        .stepper-btn:active { opacity: 0.7; }
+        .stepper-input {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-left: none;
+            border-right: none;
+            padding: 8px 4px;
+            color: var(--text);
+            font-size: 16px;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .stepper-input::-webkit-inner-spin-button,
+        .stepper-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        /* Alarm reset card desc */
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        /* Register legend */
+        .reg-legend {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .reg-legend-item { display: flex; align-items: center; gap: 6px; }
+
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-bottom: 1px solid var(--card-border);
+            overflow-x: auto;
+            position: sticky;
+            top: 48px;
+            z-index: 99;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-dim);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .card-title {
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .value-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .value-item { background: var(--hover-bg); border-radius: 8px; padding: 12px; }
+        .value-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+        .value-number { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .value-unit { font-size: 12px; color: var(--text-dim); margin-left: 2px; }
+
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .status-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--hover-bg); border-radius: 8px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+        .status-dot.on { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+        .status-dot.off { background: var(--equip-off); }
+        .status-name { font-size: 13px; }
+        .status-value { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+
+        .alarm-banner { background: rgba(239,68,68,0.15); border: 1px solid var(--red); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: none; align-items: center; gap: 12px; }
+        .alarm-banner.active { display: flex; }
+        .alarm-text { font-size: 14px; font-weight: 600; color: var(--red); }
+        .alarm-detail { font-size: 12px; color: var(--text-dim); }
+
+        .control-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .btn { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn:active { transform: scale(0.97); }
+        .btn-start { background: var(--green); color: white; }
+        .btn-stop { background: var(--red); color: white; }
+        .btn-mode { background: rgba(56,189,248,0.15); color: var(--accent); border: 1px solid rgba(56,189,248,0.3); }
+        .btn-mode.active { background: var(--accent); color: var(--bg); }
+        .btn-reset { background: rgba(249,115,22,0.15); color: var(--orange); border: 1px solid rgba(249,115,22,0.3); }
+
+        .setpoint-group { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .setpoint-label { font-size: 14px; min-width: 80px; }
+        .setpoint-input { flex: 1; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 16px; text-align: center; }
+        .setpoint-unit { font-size: 14px; color: var(--text-dim); }
+        .btn-apply { background: var(--accent); color: var(--bg); padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+        .chart-container { background: var(--hover-bg); border-radius: 8px; padding: 12px; height: 250px; }
+        .chart-canvas { width: 100%; height: 100%; }
+
+        .reg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .reg-table th { text-align: left; padding: 8px; border-bottom: 1px solid var(--card-border); color: var(--text-dim); font-size: 11px; text-transform: uppercase; }
+        .reg-table td { padding: 8px; border-bottom: 1px solid var(--input-bg); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .badge-r { background: rgba(56,189,248,0.15); color: var(--accent); }
+        .badge-rw { background: rgba(34,197,94,0.15); color: var(--green); }
+
+        .log-list { max-height: 400px; overflow-y: auto; }
+        .log-item { padding: 8px 0; border-bottom: 1px solid var(--input-bg); font-size: 13px; }
+        .log-time { color: var(--text-dim); font-size: 11px; }
+
+        @media (max-width: 480px) {
+            .device-metrics { grid-template-columns: repeat(2, 1fr); }
+            .value-number { font-size: 20px; }
+            .metric-value { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <button class="back-btn" id="backBtn" onclick="showOverview()">&#8592; 목록</button>
+            <h1 id="headerTitle">냉동기 제어</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <button id="themeToggle" onclick="toggleTheme()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#ffffff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:13px">Light</button>
+            <div class="conn-status">
+                <div class="conn-dot" id="connDot"></div>
+                <span id="connText">연결 끊김</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== OVERVIEW PAGE ===== -->
+    <div class="page active" id="page-overview">
+        <div class="content">
+            <div class="guide-text" style="margin:-12px -12px 12px -12px;border-bottom:none;border-radius:0">각 냉동기를 선택하면 상세 모니터링 및 제어 화면으로 이동합니다</div>
+            <div class="overview-title">전체 기기 (<span id="deviceCount">0</span>)</div>
+            <div id="deviceList"></div>
+        </div>
+    </div>
+
+    <!-- ===== DETAIL PAGE ===== -->
+    <div class="page" id="page-detail">
+        <div class="tabs">
+            <div class="tab active" data-tab="dashboard">대시보드</div>
+            <div class="tab" data-tab="control">제어</div>
+            <div class="tab" data-tab="history">추이</div>
+            <div class="tab" data-tab="registers">레지스터</div>
+        </div>
+        <div class="content">
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="tab-dashboard">
+                <div class="alarm-banner" id="alarmBanner">
+                    <div style="font-size:24px">&#9888;</div>
+                    <div>
+                        <div class="alarm-text" id="alarmText">-</div>
+                        <div class="alarm-detail" id="alarmDetail">-</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">온도</div>
+                    <div class="value-grid">
+                        <div class="value-item"><div class="value-label">공급 온도</div><div><span class="value-number" id="v-supply_temp">--</span><span class="value-unit">&deg;C</span></div></div>
+                        <div class="value-item"><div class="value-label">귀환 온도</div><div><span class="value-number" id="v-return_temp">--</span><span class="value-unit">&deg;C</span></div></div>
+                        <div class="value-item"><div class="value-label">외기 온도</div><div><span class="value-number" id="v-ambient_temp">--</span><span class="value-unit">&deg;C</span></div></div>
+                        <div class="value-item"><div class="value-label">설정 온도</div><div><span class="value-number" id="v-setpoint_temp">--</span><span class="value-unit">&deg;C</span></div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">압력</div>
+                    <div class="value-grid">
+                        <div class="value-item"><div class="value-label">고압</div><div><span class="value-number" id="v-high_pressure">--</span><span class="value-unit">kgf/cm&sup2;</span></div></div>
+                        <div class="value-item"><div class="value-label">저압</div><div><span class="value-number" id="v-low_pressure">--</span><span class="value-unit">kgf/cm&sup2;</span></div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">장비 상태</div>
+                    <div class="status-grid">
+                        <div class="status-item"><div class="status-dot" id="s-compressor1_status"></div><span class="status-name">압축기 #1</span><span class="status-value" id="sv-compressor1_status">-</span></div>
+                        <div class="status-item"><div class="status-dot" id="s-compressor2_status"></div><span class="status-name">압축기 #2</span><span class="status-value" id="sv-compressor2_status">-</span></div>
+                        <div class="status-item"><div class="status-dot" id="s-pump_status"></div><span class="status-name">펌프</span><span class="status-value" id="sv-pump_status">-</span></div>
+                        <div class="status-item"><div class="status-dot" id="s-fan_status"></div><span class="status-name">팬</span><span class="status-value" id="sv-fan_status">-</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">운전 정보</div>
+                    <div class="status-grid">
+                        <div class="status-item"><span class="status-name">운전 모드</span><span class="status-value" id="sv-operation_mode">-</span></div>
+                        <div class="status-item"><span class="status-name">누적 운전시간</span><span class="status-value" id="sv-run_hours">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Tab -->
+            <div class="tab-content" id="tab-control">
+                <div class="card">
+                    <div class="card-title">전원</div>
+                    <div class="power-status off" id="powerStatus">현재 상태: 정지</div>
+                    <div class="control-row">
+                        <button class="btn btn-start" id="btnStart" onclick="sendPower(1)">기동</button>
+                        <button class="btn btn-stop" id="btnStop" onclick="sendPower(0)">정지</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">운전 모드</div>
+                    <div class="power-status off" id="modeStatus" style="margin-bottom:12px">현재 모드: -</div>
+                    <div class="control-row">
+                        <button class="btn btn-mode" data-mode="1" onclick="sendMode(1)">냉방</button>
+                        <button class="btn btn-mode" data-mode="2" onclick="sendMode(2)">난방</button>
+                        <button class="btn btn-mode" data-mode="3" onclick="sendMode(3)">자동</button>
+                    </div>
+                </div>
+                <div class="card"><div class="card-title">설정값</div>
+                    <div class="setpoint-group"><span class="setpoint-label">설정 온도</span><div class="stepper-wrap"><button class="stepper-btn" onclick="stepValue('setpoint_temp',-0.5)">-</button><input type="number" class="stepper-input" id="inp-setpoint_temp" step="0.5" min="-10" max="35" value="7.0"><button class="stepper-btn" onclick="stepValue('setpoint_temp',0.5)">+</button></div><span class="setpoint-unit">&deg;C</span><button class="btn-apply" onclick="applySetpoint('setpoint_temp')">적용</button></div>
+                    <div class="setpoint-group"><span class="setpoint-label">고온 경보</span><div class="stepper-wrap"><button class="stepper-btn" onclick="stepValue('setpoint_high_temp',-0.5)">-</button><input type="number" class="stepper-input" id="inp-setpoint_high_temp" step="0.5" min="0" max="50" value="35.0"><button class="stepper-btn" onclick="stepValue('setpoint_high_temp',0.5)">+</button></div><span class="setpoint-unit">&deg;C</span><button class="btn-apply" onclick="applySetpoint('setpoint_high_temp')">적용</button></div>
+                    <div class="setpoint-group"><span class="setpoint-label">저온 경보</span><div class="stepper-wrap"><button class="stepper-btn" onclick="stepValue('setpoint_low_temp',-0.5)">-</button><input type="number" class="stepper-input" id="inp-setpoint_low_temp" step="0.5" min="-20" max="10" value="-5.0"><button class="stepper-btn" onclick="stepValue('setpoint_low_temp',0.5)">+</button></div><span class="setpoint-unit">&deg;C</span><button class="btn-apply" onclick="applySetpoint('setpoint_low_temp')">적용</button></div>
+                    <div class="setpoint-group"><span class="setpoint-label">온도 편차</span><div class="stepper-wrap"><button class="stepper-btn" onclick="stepValue('setpoint_diff_temp',-0.5)">-</button><input type="number" class="stepper-input" id="inp-setpoint_diff_temp" step="0.5" min="0.5" max="5" value="2.0"><button class="stepper-btn" onclick="stepValue('setpoint_diff_temp',0.5)">+</button></div><span class="setpoint-unit">&deg;C</span><button class="btn-apply" onclick="applySetpoint('setpoint_diff_temp')">적용</button></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">알람 리셋</div>
+                    <div class="card-desc">냉동기에 발생한 경보(고온, 저온, 고압 등)를 해제합니다. 경보 원인이 해소된 후 리셋하세요. 원인 미해결 시 경보가 재발생할 수 있습니다.</div>
+                    <button class="btn btn-reset" style="width:100%" onclick="sendControl('alarm_reset', 1)">알람 리셋</button>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-content" id="tab-history">
+                <div class="card"><div class="card-title">온도 추이</div><div class="chart-container"><canvas id="tempChart" class="chart-canvas"></canvas></div></div>
+                <div class="card"><div class="card-title">압력 추이</div><div class="chart-container"><canvas id="pressChart" class="chart-canvas"></canvas></div></div>
+            </div>
+
+            <!-- Registers Tab -->
+            <div class="tab-content" id="tab-registers">
+                <div class="card" style="overflow-x:auto">
+                    <div class="card-title">전체 레지스터 (실시간)</div>
+                    <div class="reg-legend">
+                        <div class="reg-legend-item"><span class="badge badge-r">R</span> 읽기 전용 (모니터링만 가능)</div>
+                        <div class="reg-legend-item"><span class="badge badge-rw">RW</span> 읽기/쓰기 (제어 가능)</div>
+                    </div>
+                    <table class="reg-table"><thead><tr><th>ID</th><th>이름</th><th>값</th><th>권한</th></tr></thead>
+                    <tbody id="regTableBody"><tr><td colspan="4" style="color:var(--text-dim)">데이터 수신 대기 중...</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = `${location.protocol}//${location.hostname}:8888`;
+    const WS_URL = `ws://${location.hostname}:8888/ws/realtime`;
+
+    // State
+    let ws = null;
+    let currentDeviceId = null;
+    let deviceStates = {};     // { deviceId: { registerData } }
+    let deviceSummaries = [];  // from server
+    let chartHistories = {};   // { deviceId: { temp: {...}, press: {...} } }
+    const MAX_HISTORY = 120;
+
+    // ===== WebSocket =====
+    function connectWS() {
+        ws = new WebSocket(WS_URL);
+        ws.onopen = () => {
+            document.getElementById('connDot').className = 'conn-dot connected';
+            document.getElementById('connText').textContent = '연결됨';
+        };
+        ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'device_summary') {
+                    deviceSummaries = msg.devices;
+                    renderOverview();
+                } else if (msg.type === 'device_data') {
+                    deviceStates[msg.device_id] = msg.data;
+                    if (currentDeviceId === msg.device_id) {
+                        updateDetail(msg.data);
+                        updateChartData(msg.device_id, msg.data);
+                    }
+                }
+            } catch (err) { console.error('Parse error:', err); }
+        };
+        ws.onclose = () => {
+            document.getElementById('connDot').className = 'conn-dot';
+            document.getElementById('connText').textContent = '연결 끊김';
+            setTimeout(connectWS, 3000);
+        };
+        ws.onerror = () => ws.close();
+    }
+
+    // ===== Overview Page =====
+    function renderOverview() {
+        const list = document.getElementById('deviceList');
+        document.getElementById('deviceCount').textContent = deviceSummaries.length;
+
+        list.innerHTML = deviceSummaries.map(d => {
+            let badgeClass = 'badge-stopped', badgeText = '정지';
+            if (!d.connected) { badgeClass = 'badge-offline'; badgeText = '오프라인'; }
+            else if (d.is_alarm) { badgeClass = 'badge-alarm'; badgeText = '경보'; }
+            else if (d.power_on) { badgeClass = 'badge-running'; badgeText = '운전중'; }
+
+            const cardClass = 'device-card' + (d.is_alarm ? ' alarm' : '') + (!d.connected ? ' disconnected' : '');
+
+            return `<div class="${cardClass}" onclick="showDevice('${d.id}')">
+                <div class="device-header">
+                    <div>
+                        <div class="device-name">${d.name_ko}</div>
+                        <div class="device-location">${d.location} | Unit ID: ${d.unit_id}</div>
+                    </div>
+                    <span class="device-status-badge ${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="device-metrics">
+                    <div class="device-metric">
+                        <div class="metric-label">공급온도</div>
+                        <div class="metric-value">${d.supply_temp !== null ? d.supply_temp.toFixed(1) : '--'}</div>
+                        <div class="metric-unit">&deg;C</div>
+                    </div>
+                    <div class="device-metric">
+                        <div class="metric-label">설정온도</div>
+                        <div class="metric-value">${d.setpoint_temp !== null ? d.setpoint_temp.toFixed(1) : '--'}</div>
+                        <div class="metric-unit">&deg;C</div>
+                    </div>
+                    <div class="device-metric">
+                        <div class="metric-label">모드</div>
+                        <div class="metric-value" style="font-size:14px">${d.mode}</div>
+                    </div>
+                    <div class="device-metric">
+                        <div class="metric-label">알람</div>
+                        <div class="metric-value" style="font-size:14px;color:${d.is_alarm ? 'var(--red)' : 'var(--green)'}">${d.is_alarm ? d.alarm_text : 'OK'}</div>
+                    </div>
+                </div>
+                <div class="device-equipment">
+                    <div class="equip-item"><div class="equip-dot ${d.comp1_on ? 'on' : ''}"></div>압축기1</div>
+                    <div class="equip-item"><div class="equip-dot ${d.comp2_on ? 'on' : ''}"></div>압축기2</div>
+                    <div class="equip-item"><div class="equip-dot ${d.power_on ? 'on' : ''}"></div>전원</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ===== Navigation =====
+    function showDevice(deviceId) {
+        currentDeviceId = deviceId;
+        document.getElementById('page-overview').classList.remove('active');
+        document.getElementById('page-detail').classList.add('active');
+        document.getElementById('backBtn').classList.add('visible');
+
+        const dev = deviceSummaries.find(d => d.id === deviceId);
+        document.getElementById('headerTitle').textContent = dev ? dev.name_ko : deviceId;
+
+        // Initialize chart history for this device if needed
+        if (!chartHistories[deviceId]) {
+            chartHistories[deviceId] = {
+                temp: { supply: [], return: [], ambient: [], timestamps: [] },
+                press: { high: [], low: [], timestamps: [] }
+            };
+        }
+
+        // Show first tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector('.tab[data-tab="dashboard"]').classList.add('active');
+        document.getElementById('tab-dashboard').classList.add('active');
+
+        // Update with existing data
+        if (deviceStates[deviceId]) {
+            updateDetail(deviceStates[deviceId]);
+        }
+    }
+
+    function showOverview() {
+        currentDeviceId = null;
+        document.getElementById('page-detail').classList.remove('active');
+        document.getElementById('page-overview').classList.add('active');
+        document.getElementById('backBtn').classList.remove('visible');
+        document.getElementById('headerTitle').textContent = '냉동기 제어';
+    }
+
+    // ===== Detail Update =====
+    function updateDetail(data) {
+        ['supply_temp', 'return_temp', 'ambient_temp', 'setpoint_temp', 'high_pressure', 'low_pressure'].forEach(id => {
+            const el = document.getElementById('v-' + id);
+            if (el && data[id]) el.textContent = typeof data[id].value === 'number' ? data[id].value.toFixed(1) : data[id].value;
+        });
+
+        ['compressor1_status', 'compressor2_status', 'pump_status', 'fan_status'].forEach(id => {
+            const dot = document.getElementById('s-' + id);
+            const val = document.getElementById('sv-' + id);
+            if (dot && data[id]) {
+                const isOn = data[id].value === 1 || data[id].value === true;
+                dot.className = 'status-dot ' + (isOn ? 'on' : 'off');
+                if (val) val.textContent = data[id].display || (isOn ? 'ON' : 'OFF');
+            }
+        });
+
+        if (data.operation_mode) document.getElementById('sv-operation_mode').textContent = data.operation_mode.display || '-';
+        if (data.run_hours) document.getElementById('sv-run_hours').textContent = (data.run_hours.value || 0) + ' h';
+
+        const banner = document.getElementById('alarmBanner');
+        if (data.alarm_code && data.alarm_code.value !== 0) {
+            banner.classList.add('active');
+            document.getElementById('alarmText').textContent = data.alarm_code.display || 'ALARM';
+            document.getElementById('alarmDetail').textContent = 'Code: ' + data.alarm_code.value;
+        } else {
+            banner.classList.remove('active');
+        }
+
+        // Power status
+        const powerEl = document.getElementById('powerStatus');
+        if (powerEl && data.power_command) {
+            const isOn = data.power_command.value === 1;
+            powerEl.className = 'power-status ' + (isOn ? 'on' : 'off');
+            powerEl.textContent = '현재 상태: ' + (isOn ? '기동 중' : '정지');
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            if (btnStart) { btnStart.style.opacity = isOn ? '0.4' : '1'; btnStart.textContent = '기동'; }
+            if (btnStop) { btnStop.style.opacity = isOn ? '1' : '0.4'; btnStop.textContent = '정지'; }
+        }
+
+        // Mode status & buttons
+        if (data.mode_command) {
+            const modeNames = {0:'정지', 1:'냉방', 2:'난방', 3:'자동'};
+            const modeEl = document.getElementById('modeStatus');
+            if (modeEl) {
+                const mv = data.mode_command.value;
+                modeEl.textContent = '현재 모드: ' + (modeNames[mv] || '-');
+                modeEl.className = 'power-status ' + (mv > 0 ? 'on' : 'off');
+            }
+            document.querySelectorAll('.btn-mode').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.mode) === data.mode_command.value);
+            });
+        }
+
+        ['setpoint_temp', 'setpoint_high_temp', 'setpoint_low_temp', 'setpoint_diff_temp'].forEach(id => {
+            const inp = document.getElementById('inp-' + id);
+            if (inp && data[id] && document.activeElement !== inp) inp.value = data[id].value;
+        });
+
+        updateRegisterTable(data);
+    }
+
+    // ===== Charts =====
+    function updateChartData(deviceId, data) {
+        if (!chartHistories[deviceId]) return;
+        const h = chartHistories[deviceId];
+        const now = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+
+        if (data.supply_temp) {
+            h.temp.supply.push(data.supply_temp.value);
+            h.temp.return.push(data.return_temp ? data.return_temp.value : null);
+            h.temp.ambient.push(data.ambient_temp ? data.ambient_temp.value : null);
+            h.temp.timestamps.push(now);
+            if (h.temp.supply.length > MAX_HISTORY) { h.temp.supply.shift(); h.temp.return.shift(); h.temp.ambient.shift(); h.temp.timestamps.shift(); }
+        }
+        if (data.high_pressure) {
+            h.press.high.push(data.high_pressure.value);
+            h.press.low.push(data.low_pressure ? data.low_pressure.value : null);
+            h.press.timestamps.push(now);
+            if (h.press.high.length > MAX_HISTORY) { h.press.high.shift(); h.press.low.shift(); h.press.timestamps.shift(); }
+        }
+
+        drawChart('tempChart', h.temp.timestamps, [
+            { data: h.temp.supply, color: '#38bdf8', label: '공급' },
+            { data: h.temp.return, color: '#f97316', label: '귀환' },
+            { data: h.temp.ambient, color: '#a78bfa', label: '외기' },
+        ]);
+        drawChart('pressChart', h.press.timestamps, [
+            { data: h.press.high, color: '#ef4444', label: '고압' },
+            { data: h.press.low, color: '#22c55e', label: '저압' },
+        ]);
+    }
+
+    function drawChart(canvasId, labels, series) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !canvas.offsetParent) return;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width - 24; canvas.height = rect.height - 24;
+        const W = canvas.width, H = canvas.height;
+        const pad = { top: 20, right: 12, bottom: 25, left: 45 };
+        ctx.clearRect(0, 0, W, H);
+        if (!series[0].data.length) return;
+
+        let allVals = series.flatMap(s => s.data.filter(v => v !== null));
+        let minV = Math.floor(Math.min(...allVals) - 1), maxV = Math.ceil(Math.max(...allVals) + 1);
+        if (maxV - minV < 2) { minV -= 1; maxV += 1; }
+        const plotW = W - pad.left - pad.right, plotH = H - pad.top - pad.bottom;
+
+        ctx.strokeStyle = getChartColors().grid; ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const y = pad.top + (plotH / 5) * i;
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText((maxV - ((maxV - minV) / 5) * i).toFixed(1), pad.left - 5, y + 3);
+        }
+
+        series.forEach(s => {
+            ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath();
+            let started = false;
+            s.data.forEach((v, i) => {
+                if (v === null) return;
+                const x = pad.left + (i / (s.data.length - 1 || 1)) * plotW;
+                const y = pad.top + plotH - ((v - minV) / (maxV - minV)) * plotH;
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        });
+
+        let lx = pad.left + 5;
+        series.forEach(s => {
+            ctx.fillStyle = s.color; ctx.fillRect(lx, 5, 12, 3);
+            ctx.fillStyle = getChartColors().legend; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(s.label, lx + 15, 10);
+            lx += ctx.measureText(s.label).width + 30;
+        });
+    }
+
+    // ===== Register Table =====
+    function updateRegisterTable(data) {
+        const tbody = document.getElementById('regTableBody');
+        const ids = Object.keys(data).sort();
+        if (!ids.length) return;
+        tbody.innerHTML = ids.map(id => {
+            const r = data[id];
+            const badge = r.access === 'read_write' ? '<span class="badge badge-rw">RW</span>' : '<span class="badge badge-r">R</span>';
+            return `<tr><td style="font-family:monospace;font-size:12px">${id}</td><td>${r.name_ko || r.name || id}</td><td><strong>${r.display || r.value}</strong></td><td>${badge}</td></tr>`;
+        }).join('');
+    }
+
+    // ===== Control API =====
+    async function sendControl(registerId, value) {
+        if (!currentDeviceId) return;
+        try {
+            const resp = await fetch(`${API_BASE}/api/devices/${currentDeviceId}/control/write`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ register_id: registerId, value: value }),
+            });
+            const result = await resp.json();
+            if (!resp.ok) alert('오류: ' + (result.detail || '알 수 없는 오류'));
+        } catch (e) { alert('연결 실패: ' + e.message); }
+    }
+
+    async function sendPower(value) {
+        const btn = value === 1 ? document.getElementById('btnStart') : document.getElementById('btnStop');
+        const originalText = btn.textContent;
+        btn.textContent = value === 1 ? '기동 중...' : '정지 중...';
+        btn.disabled = true;
+        await sendControl('power_command', value);
+        setTimeout(() => { btn.disabled = false; btn.textContent = originalText; }, 2000);
+    }
+
+    async function sendMode(value) {
+        const modeNames = {1:'냉방', 2:'난방', 3:'자동'};
+        const btns = document.querySelectorAll('.btn-mode');
+        btns.forEach(b => { if (parseInt(b.dataset.mode) === value) { b.textContent = '변경 중...'; b.disabled = true; } });
+        await sendControl('mode_command', value);
+        setTimeout(() => { btns.forEach(b => { b.disabled = false; b.textContent = modeNames[parseInt(b.dataset.mode)] || b.textContent; }); }, 2000);
+    }
+
+    function stepValue(registerId, delta) {
+        const inp = document.getElementById('inp-' + registerId);
+        if (!inp) return;
+        let val = parseFloat(inp.value) + delta;
+        const min = parseFloat(inp.min), max = parseFloat(inp.max);
+        if (!isNaN(min) && val < min) val = min;
+        if (!isNaN(max) && val > max) val = max;
+        inp.value = val.toFixed(1);
+    }
+
+    async function applySetpoint(registerId) {
+        const inp = document.getElementById('inp-' + registerId);
+        if (!inp) return;
+        const value = parseFloat(inp.value);
+        if (isNaN(value)) { alert('올바른 값을 입력하세요'); return; }
+        await sendControl(registerId, value);
+    }
+
+    // ===== Tabs =====
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    // ===== Theme =====
+    function toggleTheme() {
+        const html = document.documentElement;
+        const isLight = html.getAttribute('data-theme') === 'light';
+        html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? 'Light' : 'Dark';
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+    }
+    // Restore saved theme
+    (function() {
+        const saved = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'dark' ? 'Light' : 'Dark';
+    })();
+
+    function getChartColors() {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        return {
+            grid: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+            label: isLight ? '#64748b' : '#64748b',
+            legend: isLight ? '#475569' : '#94a3b8',
+        };
+    }
+
+    // ===== Init =====
+    connectWS();
+    </script>
+</body>
+</html>
