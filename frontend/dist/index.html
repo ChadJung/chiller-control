@@ -365,8 +365,64 @@
     <div class="page active" id="page-overview">
         <div class="content">
             <div class="guide-text" style="margin:-12px -12px 12px -12px;border-bottom:none;border-radius:0">각 냉동기를 선택하면 상세 모니터링 및 제어 화면으로 이동합니다</div>
-            <div class="overview-title">전체 기기 (<span id="deviceCount">0</span>)</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div class="overview-title" style="margin-bottom:0">전체 기기 (<span id="deviceCount">0</span>)</div>
+                <button onclick="showAdmin()" style="background:var(--accent);color:var(--bg);border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">기기 관리</button>
+            </div>
             <div id="deviceList"></div>
+        </div>
+    </div>
+
+    <!-- ===== ADMIN PAGE ===== -->
+    <div class="page" id="page-admin">
+        <div class="content">
+            <!-- Add Device -->
+            <div class="card">
+                <div class="card-title">기기 추가</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                    <div>
+                        <div class="value-label">기기 ID (영문)</div>
+                        <input type="text" id="adm-id" placeholder="chiller-04" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                    <div>
+                        <div class="value-label">기기 이름</div>
+                        <input type="text" id="adm-name" placeholder="냉동기 #4" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                    <div>
+                        <div class="value-label">설치 위치</div>
+                        <input type="text" id="adm-location" placeholder="기계실 A" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                    <div>
+                        <div class="value-label">기종</div>
+                        <select id="adm-model" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)"></select>
+                    </div>
+                    <div>
+                        <div class="value-label">게이트웨이 IP</div>
+                        <input type="text" id="adm-host" value="192.168.0.7" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace">
+                    </div>
+                    <div>
+                        <div class="value-label">포트</div>
+                        <input type="number" id="adm-port" value="502" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                    <div>
+                        <div class="value-label">Slave ID (Unit ID)</div>
+                        <input type="number" id="adm-unitid" value="1" min="1" max="247" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                </div>
+                <button class="btn btn-start" style="width:100%" onclick="addDevice()">추가</button>
+                <div id="admAddStatus" style="margin-top:8px;font-size:12px"></div>
+            </div>
+
+            <!-- Device List -->
+            <div class="card">
+                <div class="card-title">등록된 기기 목록</div>
+                <div class="card-desc">기종 변경, 연결 정보 수정, 삭제가 가능합니다. 변경 후 서버를 재시작해야 적용됩니다.</div>
+                <div id="adminDeviceList"></div>
+            </div>
+
+            <div style="text-align:center;margin-top:12px">
+                <div class="card-desc" style="color:var(--orange)">기기 추가/수정/삭제 후 서버를 재시작하면 반영됩니다</div>
+            </div>
         </div>
     </div>
 
@@ -686,6 +742,7 @@
     function showOverview() {
         currentDeviceId = null;
         document.getElementById('page-detail').classList.remove('active');
+        document.getElementById('page-admin').classList.remove('active');
         document.getElementById('page-overview').classList.add('active');
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('headerTitle').textContent = '냉동기 제어';
@@ -900,6 +957,100 @@
             if (tab.dataset.tab === 'settings') loadModels();
         });
     });
+
+    // ===== Admin Page =====
+    function showAdmin() {
+        document.getElementById('page-overview').classList.remove('active');
+        document.getElementById('page-admin').classList.add('active');
+        document.getElementById('backBtn').classList.add('visible');
+        document.getElementById('headerTitle').textContent = '기기 관리';
+        loadAdminData();
+    }
+
+    async function loadAdminData() {
+        // Load models for dropdown
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/models`);
+            const result = await resp.json();
+            const select = document.getElementById('adm-model');
+            select.innerHTML = (result.models || []).map(m =>
+                `<option value="${m.id}">${m.name_ko} (${m.series})</option>`
+            ).join('');
+        } catch (e) { console.error(e); }
+
+        // Load device list
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/devices`);
+            const result = await resp.json();
+            renderAdminDeviceList(result.devices || []);
+        } catch (e) { console.error(e); }
+    }
+
+    function renderAdminDeviceList(devices) {
+        const div = document.getElementById('adminDeviceList');
+        if (!devices.length) {
+            div.innerHTML = '<div style="color:var(--text-dim);padding:12px;text-align:center">등록된 기기가 없습니다</div>';
+            return;
+        }
+        div.innerHTML = devices.map(d => {
+            const conn = d.connection || {};
+            return `<div style="background:var(--hover-bg);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <div style="font-weight:600">${d.name_ko || d.name || d.id}</div>
+                    <div style="font-size:12px;color:var(--text-dim)">${d.location || '-'} | ${conn.tcp_host || '-'}:${conn.tcp_port || '-'} | Unit ID: ${d.unit_id || '-'}</div>
+                    <div style="font-size:11px;color:var(--accent);margin-top:2px">${d.register_map || '-'}</div>
+                </div>
+                <button onclick="deleteDevice('${d.id}','${d.name_ko || d.id}')" style="background:var(--red);color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">삭제</button>
+            </div>`;
+        }).join('');
+    }
+
+    async function addDevice() {
+        const id = document.getElementById('adm-id').value.trim();
+        const name = document.getElementById('adm-name').value.trim();
+        const location = document.getElementById('adm-location').value.trim();
+        const modelId = document.getElementById('adm-model').value;
+        const host = document.getElementById('adm-host').value.trim();
+        const port = parseInt(document.getElementById('adm-port').value);
+        const unitId = parseInt(document.getElementById('adm-unitid').value);
+        const statusEl = document.getElementById('admAddStatus');
+
+        if (!id || !name) { statusEl.textContent = 'ID와 이름을 입력하세요'; statusEl.style.color = 'var(--red)'; return; }
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/devices`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name_ko: name, location, model_id: modelId, tcp_host: host, tcp_port: port, unit_id: unitId }),
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                statusEl.textContent = result.message;
+                statusEl.style.color = 'var(--green)';
+                document.getElementById('adm-id').value = '';
+                document.getElementById('adm-name').value = '';
+                loadAdminData();
+            } else {
+                statusEl.textContent = '오류: ' + (result.detail || '추가 실패');
+                statusEl.style.color = 'var(--red)';
+            }
+        } catch (e) {
+            statusEl.textContent = '연결 실패: ' + e.message;
+            statusEl.style.color = 'var(--red)';
+        }
+    }
+
+    async function deleteDevice(deviceId, deviceName) {
+        if (!confirm(`'${deviceName}'를 삭제하시겠습니까?`)) return;
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/devices/${deviceId}`, { method: 'DELETE' });
+            const result = await resp.json();
+            if (resp.ok) {
+                loadAdminData();
+            } else {
+                alert('삭제 실패: ' + (result.detail || ''));
+            }
+        } catch (e) { alert('연결 실패: ' + e.message); }
+    }
 
     // ===== Model Selection =====
     async function loadModels() {

@@ -16,7 +16,7 @@ from config import get_settings
 from device_manager import DeviceManager
 from db.database import init_db
 from db.crud import save_history
-from api.routers import devices, alarms, history, control, regmap
+from api.routers import devices, alarms, history, control, regmap, device_admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -102,6 +102,7 @@ app.include_router(control.router, prefix="/api/devices", tags=["control"])
 app.include_router(history.router, prefix="/api/devices", tags=["history"])
 app.include_router(alarms.router, prefix="/api/devices", tags=["alarms"])
 app.include_router(regmap.router, prefix="/api/regmap", tags=["regmap"])
+app.include_router(device_admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.websocket("/ws/realtime")
