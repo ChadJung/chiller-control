@@ -62,6 +62,12 @@ class RegisterMap:
         self._unit_id_override = unit_id_override
         self._load()
 
+    def reload(self):
+        """Reload register map from file."""
+        self._registers.clear()
+        self._polling_groups.clear()
+        self._load()
+
     def _load(self):
         with open(self._path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)

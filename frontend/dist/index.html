@@ -377,6 +377,7 @@
             <div class="tab" data-tab="control">제어</div>
             <div class="tab" data-tab="history">추이</div>
             <div class="tab" data-tab="registers">레지스터</div>
+            <div class="tab" data-tab="settings">설정</div>
         </div>
         <div class="content">
             <!-- Dashboard Tab -->
@@ -470,6 +471,63 @@
                     </div>
                     <table class="reg-table"><thead><tr><th>ID</th><th>이름</th><th>값</th><th>권한</th></tr></thead>
                     <tbody id="regTableBody"><tr><td colspan="4" style="color:var(--text-dim)">데이터 수신 대기 중...</td></tr></tbody></table>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" id="tab-settings">
+                <!-- Register Test Tool -->
+                <div class="card">
+                    <div class="card-title">레지스터 매핑 검증</div>
+                    <div class="card-desc">주소와 설정을 입력하고 실제 값을 읽어 매핑이 올바른지 확인합니다. 원시값(raw)과 변환된 값을 비교하세요.</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                        <div>
+                            <div class="value-label">주소 (HEX)</div>
+                            <input type="text" id="test-addr" value="0x0000" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace">
+                        </div>
+                        <div>
+                            <div class="value-label">Function Code</div>
+                            <select id="test-fc" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                                <option value="1">FC1 - Read Coils</option>
+                                <option value="2">FC2 - Read Discrete Inputs</option>
+                                <option value="3" selected>FC3 - Read Holding Registers</option>
+                                <option value="4">FC4 - Read Input Registers</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="value-label">데이터 타입</div>
+                            <select id="test-dtype" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                                <option value="uint16" selected>uint16 (부호 없음)</option>
+                                <option value="int16">int16 (부호 있음)</option>
+                                <option value="uint32">uint32 (32비트)</option>
+                                <option value="int32">int32 (32비트 부호)</option>
+                                <option value="float32">float32 (실수)</option>
+                                <option value="bool">bool (0/1)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="value-label">스케일 (배율)</div>
+                            <input type="number" id="test-scale" value="1.0" step="0.01" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                        </div>
+                    </div>
+                    <button class="btn btn-start" style="width:100%;margin-bottom:12px" onclick="testReadRegister()">읽기 테스트</button>
+                    <div id="testResult" style="display:none">
+                        <table class="reg-table">
+                            <tbody id="testResultBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Register Map Editor -->
+                <div class="card">
+                    <div class="card-title">레지스터 맵 편집 (YAML)</div>
+                    <div class="card-desc">레지스터 주소, 이름, 스케일 등을 수정합니다. 저장 시 자동 검증되며, 오류가 있으면 저장되지 않습니다.</div>
+                    <div style="display:flex;gap:8px;margin-bottom:12px">
+                        <button class="btn-apply" onclick="loadRegMapYaml()" style="flex:1">불러오기</button>
+                        <button class="btn-apply" onclick="saveRegMapYaml()" style="flex:1;background:var(--green);color:white">저장</button>
+                    </div>
+                    <textarea id="regmapEditor" style="width:100%;height:400px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;padding:12px;color:var(--text);font-family:monospace;font-size:12px;line-height:1.5;resize:vertical;tab-size:2" spellcheck="false" placeholder="레지스터 맵을 불러오려면 위 '불러오기' 버튼을 클릭하세요"></textarea>
+                    <div id="regmapStatus" style="margin-top:8px;font-size:12px;color:var(--text-dim)"></div>
                 </div>
             </div>
         </div>
@@ -813,6 +871,97 @@
             document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
         });
     });
+
+    // ===== Register Map Settings =====
+    async function testReadRegister() {
+        if (!currentDeviceId) return;
+        const addr = parseInt(document.getElementById('test-addr').value);
+        const fc = parseInt(document.getElementById('test-fc').value);
+        const dtype = document.getElementById('test-dtype').value;
+        const scale = parseFloat(document.getElementById('test-scale').value);
+        const count = dtype.includes('32') ? 2 : 1;
+
+        if (isNaN(addr)) { alert('올바른 주소를 입력하세요 (예: 0x0000)'); return; }
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/regmap/${currentDeviceId}/test`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: addr, function_code: fc, count: count, data_type: dtype, scale: scale }),
+            });
+            const result = await resp.json();
+            const div = document.getElementById('testResult');
+            const tbody = document.getElementById('testResultBody');
+            div.style.display = 'block';
+
+            if (result.status === 'ok') {
+                tbody.innerHTML = `
+                    <tr><td style="color:var(--text-dim)">주소</td><td><strong>${result.address}</strong></td></tr>
+                    <tr><td style="color:var(--text-dim)">FC / Unit ID</td><td>FC${result.function_code} / Slave ${result.unit_id}</td></tr>
+                    <tr><td style="color:var(--text-dim)">원시값 (DEC)</td><td><strong style="color:var(--accent)">${result.raw_values.join(', ')}</strong></td></tr>
+                    <tr><td style="color:var(--text-dim)">원시값 (HEX)</td><td><strong style="color:var(--accent)">${result.raw_hex.join(', ')}</strong></td></tr>
+                    <tr><td style="color:var(--text-dim)">데이터 타입</td><td>${result.data_type} (x${result.scale})</td></tr>
+                    <tr><td style="color:var(--text-dim)">변환 결과</td><td><strong style="font-size:18px;color:var(--green)">${result.display}</strong></td></tr>
+                `;
+            } else {
+                tbody.innerHTML = `
+                    <tr><td style="color:var(--text-dim)">주소</td><td>${result.address}</td></tr>
+                    <tr><td style="color:var(--red)">오류</td><td style="color:var(--red)"><strong>${result.message}</strong></td></tr>
+                    <tr><td style="color:var(--text-dim)">상세</td><td>${result.error || '-'}</td></tr>
+                `;
+            }
+        } catch (e) {
+            alert('연결 실패: ' + e.message);
+        }
+    }
+
+    async function loadRegMapYaml() {
+        if (!currentDeviceId) return;
+        try {
+            const resp = await fetch(`${API_BASE}/api/regmap/${currentDeviceId}`);
+            const result = await resp.json();
+            if (result.status === 'ok') {
+                document.getElementById('regmapEditor').value = result.content;
+                document.getElementById('regmapStatus').textContent = '파일: ' + result.file + ' (불러오기 완료)';
+                document.getElementById('regmapStatus').style.color = 'var(--green)';
+            }
+        } catch (e) {
+            alert('불러오기 실패: ' + e.message);
+        }
+    }
+
+    async function saveRegMapYaml() {
+        if (!currentDeviceId) return;
+        const content = document.getElementById('regmapEditor').value;
+        if (!content.trim()) { alert('내용이 비어있습니다'); return; }
+
+        const statusEl = document.getElementById('regmapStatus');
+        statusEl.textContent = '저장 중...';
+        statusEl.style.color = 'var(--accent)';
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/regmap/${currentDeviceId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content }),
+            });
+            const result = await resp.json();
+
+            if (resp.ok) {
+                statusEl.textContent = '저장 완료 - 레지스터 ' + result.register_count + '개, 폴링 그룹 ' + result.polling_groups + '개';
+                statusEl.style.color = 'var(--green)';
+            } else {
+                const detail = result.detail;
+                if (typeof detail === 'object' && detail.errors) {
+                    statusEl.innerHTML = '<span style="color:var(--red)">검증 실패:</span><br>' + detail.errors.map(e => '- ' + e).join('<br>');
+                } else {
+                    statusEl.textContent = '오류: ' + (typeof detail === 'string' ? detail : JSON.stringify(detail));
+                    statusEl.style.color = 'var(--red)';
+                }
+            }
+        } catch (e) {
+            statusEl.textContent = '저장 실패: ' + e.message;
+            statusEl.style.color = 'var(--red)';
+        }
+    }
 
     // ===== Theme =====
     function toggleTheme() {
