@@ -1,6 +1,6 @@
 """
 Modbus connection manager.
-Supports both TCP (gateway) and RTU (USB-RS485) modes.
+Supports TCP (Modbus TCP gateway), RTU over TCP (serial server), and RTU (USB-RS485).
 Auto-reconnects with exponential backoff.
 Supports per-device configuration via from_device_config().
 """
@@ -9,19 +9,29 @@ import asyncio
 import logging
 from typing import Optional
 from pymodbus.client import AsyncModbusTcpClient, AsyncModbusSerialClient
+from pymodbus.framer import FramerType
 
 logger = logging.getLogger(__name__)
 
 
 class ModbusConnectionManager:
     def __init__(self, mode: str, tcp_host: str = "127.0.0.1", tcp_port: int = 502,
-                 rtu_port: str = "COM3", baudrate: int = 9600, timeout: int = 3):
+                 rtu_port: str = "COM3", baudrate: int = 9600, timeout: int = 3,
+                 framer: str = "auto"):
+        """
+        mode: tcp (Modbus TCP gateway) | rtu_over_tcp (serial server like NM-V485) | rtu (USB-RS485)
+        framer: auto | socket | rtu
+          - auto: tcp→socket framer, rtu_over_tcp→rtu framer
+          - socket: Modbus TCP (MBAP header)
+          - rtu: RTU framing over TCP (for serial servers)
+        """
         self._mode = mode
         self._tcp_host = tcp_host
         self._tcp_port = tcp_port
         self._rtu_port = rtu_port
         self._baudrate = baudrate
         self._timeout = timeout
+        self._framer = framer
         self._client = None
         self._connected = False
         self._reconnect_attempts = 0
@@ -37,16 +47,31 @@ class ModbusConnectionManager:
             rtu_port=conn_cfg.get("rtu_port", "COM3"),
             baudrate=conn_cfg.get("baudrate", 9600),
             timeout=conn_cfg.get("timeout", 3),
+            framer=conn_cfg.get("framer", "auto"),
         )
 
+    def _resolve_framer(self) -> FramerType:
+        """Determine the framer type based on mode and config."""
+        if self._framer == "rtu":
+            return FramerType.RTU
+        elif self._framer == "socket":
+            return FramerType.SOCKET
+        # auto
+        if self._mode == "rtu_over_tcp":
+            return FramerType.RTU
+        return FramerType.SOCKET
+
     def _create_client(self):
-        if self._mode == "tcp":
+        if self._mode in ("tcp", "rtu_over_tcp"):
+            framer = self._resolve_framer()
+            logger.info(f"Creating TCP client ({self._tcp_host}:{self._tcp_port}, framer={framer.name})")
             return AsyncModbusTcpClient(
                 host=self._tcp_host,
                 port=self._tcp_port,
                 timeout=self._timeout,
+                framer=framer,
             )
-        else:
+        else:  # rtu
             return AsyncModbusSerialClient(
                 port=self._rtu_port,
                 baudrate=self._baudrate,
