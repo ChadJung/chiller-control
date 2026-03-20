@@ -420,6 +420,26 @@
                 <div id="adminDeviceList"></div>
             </div>
 
+            <!-- Connection Check -->
+            <div class="card">
+                <div class="card-title">게이트웨이 연결 확인</div>
+                <div class="card-desc">컨버터(게이트웨이)의 네트워크 연결 상태를 확인합니다. Ping + TCP 포트 접속을 테스트합니다.</div>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px">
+                    <div>
+                        <div class="value-label">게이트웨이 IP</div>
+                        <input type="text" id="chk-host" value="192.168.0.3" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace">
+                    </div>
+                    <div>
+                        <div class="value-label">TCP 포트</div>
+                        <input type="number" id="chk-port" value="5000" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)">
+                    </div>
+                </div>
+                <button class="btn btn-start" style="width:100%" id="chkBtn" onclick="checkConnection()">연결 확인</button>
+                <div id="chkResult" style="display:none;margin-top:12px">
+                    <table class="reg-table"><tbody id="chkResultBody"></tbody></table>
+                </div>
+            </div>
+
             <div class="card">
                 <button class="btn btn-start" style="width:100%" id="reloadBtn" onclick="reloadDevices()">변경사항 적용 (리로드)</button>
                 <div id="reloadStatus" style="margin-top:8px;font-size:12px;text-align:center"></div>
@@ -1098,6 +1118,40 @@
                 alert('오류: ' + (result.detail || '수정 실패'));
             }
         } catch (e) { alert('연결 실패: ' + e.message); }
+    }
+
+    async function checkConnection() {
+        const host = document.getElementById('chk-host').value.trim();
+        const port = parseInt(document.getElementById('chk-port').value);
+        const btn = document.getElementById('chkBtn');
+        btn.textContent = '확인 중...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/check-connection`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tcp_host: host, tcp_port: port }),
+            });
+            const r = await resp.json();
+            const div = document.getElementById('chkResult');
+            const tbody = document.getElementById('chkResultBody');
+            div.style.display = 'block';
+
+            const pingColor = r.ping ? 'var(--green)' : 'var(--red)';
+            const tcpColor = r.tcp ? 'var(--green)' : 'var(--red)';
+            const overallColor = r.status === 'ok' ? 'var(--green)' : r.status === 'partial' ? 'var(--orange)' : 'var(--red)';
+
+            tbody.innerHTML = `
+                <tr><td style="color:var(--text-dim)">Ping</td><td style="color:${pingColor};font-weight:600">${r.ping ? 'OK' : 'FAIL'} - ${r.ping_detail}</td></tr>
+                <tr><td style="color:var(--text-dim)">TCP 포트</td><td style="color:${tcpColor};font-weight:600">${r.tcp ? 'OK' : 'FAIL'} - ${r.tcp_detail}</td></tr>
+                <tr><td style="color:var(--text-dim)">결과</td><td style="color:${overallColor};font-weight:600;font-size:15px">${r.message}</td></tr>
+            `;
+        } catch (e) {
+            alert('연결 확인 실패: ' + e.message);
+        } finally {
+            btn.textContent = '연결 확인';
+            btn.disabled = false;
+        }
     }
 
     async function reloadDevices() {

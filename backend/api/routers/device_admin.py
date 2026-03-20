@@ -5,8 +5,11 @@ PUT    /api/admin/devices/{id}      - edit device
 DELETE /api/admin/devices/{id}      - delete device
 GET    /api/admin/models            - list available models
 POST   /api/admin/reload            - hot-reload all devices (no server restart)
+POST   /api/admin/check-connection  - test network connectivity to gateway
 """
 
+import socket
+import asyncio
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from pathlib import Path
@@ -211,6 +214,67 @@ async def delete_device(device_id: str):
         "message": f"'{name}' 삭제 완료",
         "restart_required": True,
     }
+
+
+class CheckConnectionRequest(BaseModel):
+    tcp_host: str
+    tcp_port: int = 5000
+
+
+@router.post("/check-connection")
+async def check_connection(req: CheckConnectionRequest):
+    """Test network connectivity: ping + TCP port check."""
+    results = {"host": req.tcp_host, "port": req.tcp_port}
+
+    # Ping test
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ping", "-n", "2", "-w", "2000", req.tcp_host,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        output = stdout.decode("utf-8", errors="ignore")
+        results["ping"] = proc.returncode == 0
+        # Extract response time
+        if "TTL=" in output:
+            results["ping_detail"] = "응답 정상"
+        else:
+            results["ping_detail"] = "응답 없음"
+    except Exception as e:
+        results["ping"] = False
+        results["ping_detail"] = str(e)
+
+    # TCP port test
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect((req.tcp_host, req.tcp_port))
+        s.close()
+        results["tcp"] = True
+        results["tcp_detail"] = f"포트 {req.tcp_port} 연결 성공"
+    except socket.timeout:
+        results["tcp"] = False
+        results["tcp_detail"] = f"포트 {req.tcp_port} 타임아웃 - 포트 번호 확인 필요"
+    except ConnectionRefusedError:
+        results["tcp"] = False
+        results["tcp_detail"] = f"포트 {req.tcp_port} 연결 거부 - 컨버터 설정 확인 필요"
+    except Exception as e:
+        results["tcp"] = False
+        results["tcp_detail"] = str(e)
+
+    # Overall status
+    if results["ping"] and results["tcp"]:
+        results["status"] = "ok"
+        results["message"] = "게이트웨이 연결 정상"
+    elif results["ping"] and not results["tcp"]:
+        results["status"] = "partial"
+        results["message"] = "네트워크 연결됨, TCP 포트 확인 필요"
+    else:
+        results["status"] = "fail"
+        results["message"] = "네트워크 연결 실패 - IP 주소 및 랜선 확인 필요"
+
+    return results
 
 
 @router.post("/reload")
