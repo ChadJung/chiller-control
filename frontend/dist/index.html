@@ -6,7 +6,10 @@
     <title>냉동기 제어 시스템</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* dropdown option list: keep text visible in both themes */
+        select option { background: var(--card); color: var(--text); }
         :root {
+            color-scheme: dark;   /* native <select> dropdown popup renders dark */
             --bg: #0f172a;
             --card: #1e293b;
             --card-border: #334155;
@@ -25,6 +28,7 @@
             --device-title-text: #e2e8f0;
         }
         [data-theme="light"] {
+            color-scheme: light;   /* native <select> dropdown popup renders light */
             --bg: #f1f5f9;
             --card: #ffffff;
             --card-border: #e2e8f0;
@@ -438,6 +442,18 @@
                 <div id="chkResult" style="display:none;margin-top:12px">
                     <table class="reg-table"><tbody id="chkResultBody"></tbody></table>
                 </div>
+            </div>
+
+            <!-- Connection Troubleshooting (step-by-step) -->
+            <div class="card">
+                <div class="card-title">연결 진단 (단계별 문제 해결)</div>
+                <div class="card-desc">냉동기에 연결이 안 될 때 사용합니다. 네트워크 → 게이트웨이 포트 → Modbus 연결 → 냉동기 응답까지 단계별로 점검하여 어디서 막히는지 찾아줍니다.</div>
+                <div style="margin-bottom:12px">
+                    <div class="value-label">진단할 기기</div>
+                    <select id="diag-device" style="width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:6px;padding:8px;color:var(--text)"></select>
+                </div>
+                <button class="btn btn-start" style="width:100%" id="diagBtn" onclick="runDiagnose()">진단 시작</button>
+                <div id="diagResult" style="display:none;margin-top:12px"></div>
             </div>
 
             <div class="card">
@@ -1003,8 +1019,65 @@
         try {
             const resp = await fetch(`${API_BASE}/api/admin/devices`);
             const result = await resp.json();
-            renderAdminDeviceList(result.devices || []);
+            const devices = result.devices || [];
+            renderAdminDeviceList(devices);
+            // Populate diagnosis device dropdown
+            const diagSel = document.getElementById('diag-device');
+            if (diagSel) {
+                diagSel.innerHTML = devices.map(d =>
+                    `<option value="${d.id}">${d.name_ko || d.name || d.id} (${(d.connection||{}).tcp_host || '-'} / Unit ${d.unit_id || '-'})</option>`
+                ).join('') || '<option value="">등록된 기기 없음</option>';
+            }
         } catch (e) { console.error(e); }
+    }
+
+    async function runDiagnose() {
+        const deviceId = document.getElementById('diag-device').value;
+        const btn = document.getElementById('diagBtn');
+        const box = document.getElementById('diagResult');
+        if (!deviceId) { alert('진단할 기기를 선택하세요'); return; }
+        btn.disabled = true;
+        btn.textContent = '진단 중... (최대 30초)';
+        box.style.display = 'block';
+        box.innerHTML = '<div style="color:var(--text-dim);padding:8px">단계별로 점검 중입니다...</div>';
+        try {
+            const resp = await fetch(`${API_BASE}/api/admin/diagnose`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId }),
+            });
+            const r = await resp.json();
+            if (!resp.ok) throw new Error(r.detail || '진단 실패');
+            renderDiagnose(r);
+        } catch (e) {
+            box.innerHTML = `<div style="color:var(--danger,#e5484d);padding:8px">진단 실패: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '진단 시작';
+        }
+    }
+
+    function renderDiagnose(r) {
+        const icon = (ok) => ok === true ? '<span style="color:#30a46c">●</span>'
+            : ok === false ? '<span style="color:#e5484d">●</span>'
+            : '<span style="color:var(--text-dim)">○</span>';
+        const s = r.summary || {};
+        const ov = r.overall || {};
+        const ovColor = ov.status === 'ok' ? '#30a46c' : ov.status === 'fail' ? '#e5484d' : '#f5a623';
+        let html = `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">`
+            + `${s.name} · ${s.mode} · ${s.host}:${s.port} · Unit ${s.unit_id} · framer=${s.framer}`
+            + `${s.baudrate ? ' · ' + s.baudrate + 'bps' : ''}</div>`;
+        html += '<div style="display:flex;flex-direction:column;gap:6px">';
+        (r.steps || []).forEach((st, i) => {
+            html += `<div style="background:var(--hover-bg);border-radius:8px;padding:10px">
+                <div style="font-weight:600;font-size:13px">${icon(st.ok)} ${i + 1}. ${st.name}</div>
+                <div style="font-size:12px;color:var(--text-dim);margin-top:3px">${st.detail || ''}</div>
+                ${st.ok === false && st.hint ? `<div style="font-size:12px;color:#f5a623;margin-top:4px">조치: ${st.hint}</div>` : ''}
+            </div>`;
+        });
+        html += '</div>';
+        html += `<div style="margin-top:10px;padding:10px;border-radius:8px;border:1px solid ${ovColor};color:${ovColor};font-size:13px;font-weight:600">${ov.message || ''}</div>`;
+        document.getElementById('diagResult').innerHTML = html;
     }
 
     function renderAdminDeviceList(devices) {

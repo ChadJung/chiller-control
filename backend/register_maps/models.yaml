@@ -19,6 +19,22 @@ models:
       slave_id_range: "1~247"
     notes: "원격 모드 설정 필요: SYS1→DIST, SYS2→BUS"
 
+  - id: "lgc_x30_abs"
+    manufacturer: "LG"
+    name: "Absorption Chiller LGC-X30"
+    name_ko: "LG 흡수식 냉동기 LGC-X30"
+    series: "X30 (ABS)"
+    register_map: "register_maps/lgc_x30.yaml"
+    comm_spec:
+      protocol: "Modbus RTU"
+      baudrate: 19200
+      data_bits: 8
+      parity: "None"
+      stop_bits: 1
+      rs485_terminal: "RS485 Half Duplex"
+      slave_id_range: "1~247"
+    notes: "기본 통신속도 19200bps (4800~57600 지원). 흡수식(ABS) 모델 - 온수 설정은 난방시 사용"
+
   - id: "default_test"
     manufacturer: "Test"
     name: "Default Test Chiller"

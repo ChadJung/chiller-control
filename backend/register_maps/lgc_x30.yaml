@@ -1,0 +1,453 @@
+# LG Absorption Chiller — Model LGC-X30 (MACHINE TYPE: ABS / 흡수식)
+# Source: "X30 통신프로토콜(Modbus)_ABS_고객송부용_220608_R1" (docs/)
+# Comms: Modbus RTU, RS485 Half Duplex, 8N1, Baud 4800~57600 (Default 19200)
+#
+# NOTE: Modbus addresses below are PROTOCOL addresses (0-based).
+#   Manual address → protocol address conversion:
+#     Coil:            addr - 1       (00001 → 0)
+#     Discrete Input:  addr - 10001   (10001 → 0)
+#     Holding Reg:     addr - 40001   (40003 → 2)
+#     Input Reg:       addr - 30001   (30001 → 0)
+# NOTE: Manual "DCS Scale" is a raw multiplier (raw = eng × scale).
+#   This system applies eng = raw × `scale`, so manual-scale 10 → scale: 0.1,
+#   manual-scale 100 → scale: 0.01, manual-scale 1 → scale: 1.
+
+metadata:
+  manufacturer: "LG"
+  model: "LGC-X30 (ABS)"
+  machine_type: "Absorption (흡수식)"
+  modbus_unit_id: 1
+  encoding: "big-endian"
+  manual_ref: "X30 통신프로토콜(Modbus)_ABS_220608_R1"
+
+registers:
+  # === COIL REGISTERS (FC1 read / FC5 write) — Key Input (momentary) ===
+  - id: "run_cmd"
+    name: "Run Command"
+    name_ko: "운전"
+    address: 0          # Manual 00001 → protocol 0
+    function_code: 1
+    write_function_code: 5
+    data_type: "bool"
+    access: "read_write"
+    category: "control"
+    enum:
+      0: "동작없음"
+      1: "운전"
+
+  - id: "stop_cmd"
+    name: "Stop Command"
+    name_ko: "정지"
+    address: 1          # Manual 00002 → protocol 1
+    function_code: 1
+    write_function_code: 5
+    data_type: "bool"
+    access: "read_write"
+    category: "control"
+    enum:
+      0: "동작없음"
+      1: "정지"
+
+  # === DISCRETE INPUT REGISTERS (FC2) — Status Flags (read only) ===
+  - id: "run_status"
+    name: "Run Status"
+    name_ko: "운전 상태"
+    address: 0          # Manual 10001 → protocol 0
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "정지"
+      1: "운전"
+
+  - id: "extraction_pump_status"
+    name: "Extraction Pump Run Status"
+    name_ko: "추기 펌프 운전 상태"
+    address: 5          # Manual 10006 → protocol 5
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "정지"
+      1: "운전"
+
+  - id: "combustion_status"
+    name: "Combustion Run Status"
+    name_ko: "연소 운전 상태"
+    address: 10         # Manual 10011 → protocol 10
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "정지"
+      1: "운전"
+
+  - id: "refrigerant_pump_status"
+    name: "Refrigerant Pump Run Status"
+    name_ko: "냉매 펌프 운전 상태"
+    address: 11         # Manual 10012 → protocol 11
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "정지"
+      1: "운전"
+
+  - id: "chilled_flow_status"
+    name: "Chilled Water Flow Normal"
+    name_ko: "냉수 유량 정상 상태"
+    address: 12         # Manual 10013 → protocol 12
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "유량없음"
+      1: "유량정상"
+
+  - id: "cooling_flow_status"
+    name: "Cooling Water Flow Normal"
+    name_ko: "냉각수 유량 정상 상태"
+    address: 13         # Manual 10014 → protocol 13
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "유량없음"
+      1: "유량정상"
+
+  - id: "buzzer_status"
+    name: "Buzzer Status"
+    name_ko: "부저 상태"
+    address: 15         # Manual 10016 → protocol 15
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "status"
+    enum:
+      0: "OFF"
+      1: "ON"
+
+  - id: "fault_status"
+    name: "Fault Status"
+    name_ko: "이상 상태"
+    address: 17         # Manual 10018 → protocol 17
+    function_code: 2
+    data_type: "bool"
+    access: "read"
+    category: "alarm"
+    enum:
+      0: "정상"
+      1: "이상"
+
+  # === HOLDING REGISTERS (FC3 read / FC6 write) — Setpoints ===
+  - id: "chilled_water_setpoint"
+    name: "Chilled Water Outlet Setpoint"
+    name_ko: "냉수 출구 온도 설정"
+    address: 2          # Manual 40003 → protocol 2
+    function_code: 3
+    write_function_code: 6
+    data_type: "uint16"
+    access: "read_write"
+    category: "control"
+    scale: 0.1          # Manual scale 10
+    unit: "℃"
+    min: 3
+    max: 20
+    default: 7
+
+  - id: "hot_water_setpoint"
+    name: "Hot Water Outlet Setpoint"
+    name_ko: "온수 출구 온도 설정 (난방시)"
+    address: 3          # Manual 40004 → protocol 3
+    function_code: 3
+    write_function_code: 6
+    data_type: "uint16"
+    access: "read_write"
+    category: "control"
+    scale: 0.1          # Manual scale 10
+    unit: "℃"
+    min: 40
+    max: 80
+    default: 60
+
+  # === INPUT REGISTERS (FC4) — Messages / Sensors (read only) ===
+  - id: "run_message"
+    name: "Run Message Code"
+    name_ko: "운전 메시지"
+    address: 0          # Manual 30001 → protocol 0
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "info"
+    scale: 1
+
+  - id: "alarm_message"
+    name: "Alarm Message Code"
+    name_ko: "경보 메시지"
+    address: 1          # Manual 30002 → protocol 1
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "alarm"
+    scale: 1
+
+  - id: "fault_message"
+    name: "Fault Message Code"
+    name_ko: "이상 메시지"
+    address: 2          # Manual 30003 → protocol 2
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "alarm"
+    scale: 1
+
+  - id: "control_valve_opening"
+    name: "Control Valve Opening"
+    name_ko: "제어밸브 개도"
+    address: 9          # Manual 30010 → protocol 9
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "sensor"
+    scale: 1
+    unit: "%"
+    min: 0
+    max: 100
+
+  - id: "chilled_inlet_temp"
+    name: "Chilled/Hot Water Inlet Temp (TE1)"
+    name_ko: "냉온수 입구 온도 (TE1)"
+    address: 20         # Manual 30021 → protocol 20
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "chilled_outlet_temp"
+    name: "Chilled/Hot Water Outlet Temp (TE2)"
+    name_ko: "냉온수 출구 온도 (TE2)"
+    address: 21         # Manual 30022 → protocol 21
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "cooling_inlet_temp"
+    name: "Cooling Water Inlet Temp (TE3)"
+    name_ko: "냉각수 입구 온도 (TE3)"
+    address: 22         # Manual 30023 → protocol 22
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "cooling_outlet_temp"
+    name: "Cooling Water Outlet Temp (TE4)"
+    name_ko: "냉각수 출구 온도 (TE4)"
+    address: 23         # Manual 30024 → protocol 23
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "condenser_refrig_temp"
+    name: "Condenser Refrigerant Temp (TE5)"
+    name_ko: "응축기 냉매 온도 (TE5)"
+    address: 24         # Manual 30025 → protocol 24
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "high_temp_generator_temp"
+    name: "High-Temp Generator Temp (TE6)"
+    name_ko: "고온 재생기 온도 (TE6)"
+    address: 25         # Manual 30026 → protocol 25
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "low_chamber_pressure"
+    name: "Low Chamber Pressure (AI1)"
+    name_ko: "저실 압력 (AI1)"
+    address: 26         # Manual 30027 → protocol 26
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "sensor"
+    scale: 1
+    unit: "mmHg"
+
+  - id: "extraction_pressure"
+    name: "Extraction Device Pressure (AI2)"
+    name_ko: "추기 장치 압력 (AI2)"
+    address: 27         # Manual 30028 → protocol 27
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "sensor"
+    scale: 1
+    unit: "mmHg"
+
+  - id: "chilled_water_flow"
+    name: "Chilled Water Flow (AI3)"
+    name_ko: "냉수 유량 (AI3)"
+    address: 28         # Manual 30029 → protocol 28
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "sensor"
+    scale: 0.01         # Manual scale 100
+    unit: "mAq"
+
+  - id: "cooling_water_flow"
+    name: "Cooling Water Flow (AI4)"
+    name_ko: "냉각수 유량 (AI4)"
+    address: 29         # Manual 30030 → protocol 29
+    function_code: 4
+    data_type: "uint16"
+    access: "read"
+    category: "sensor"
+    scale: 1
+    unit: "㎥/h"
+
+  - id: "hot_water_outlet_temp"
+    name: "Hot Water Outlet Temp 80C (TE1)"
+    name_ko: "온수 출구 온도 80℃ (TE1)"
+    address: 40         # Manual 30041 → protocol 40
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "hot_water_inlet_temp"
+    name: "Hot Water Inlet Temp 80C (TE2)"
+    name_ko: "온수 입구 온도 80℃ (TE2)"
+    address: 41         # Manual 30042 → protocol 41
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "low_temp_generator_temp"
+    name: "Low-Temp Generator Temp (TE3)"
+    name_ko: "저온 재생기 온도 (TE3)"
+    address: 42         # Manual 30043 → protocol 42
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "evaporator_refrig_temp"
+    name: "Evaporator Refrigerant Temp (TE4)"
+    name_ko: "증발기 냉매 온도 (TE4)"
+    address: 43         # Manual 30044 → protocol 43
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "absorber_solution_temp"
+    name: "Absorber Dilute Solution Temp (TE5)"
+    name_ko: "흡수기 희액 온도 (TE5)"
+    address: 44         # Manual 30045 → protocol 44
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+  - id: "exhaust_gas_temp"
+    name: "Exhaust Gas Outlet Temp (TE6)"
+    name_ko: "배기가스 출구 온도 (TE6)"
+    address: 45         # Manual 30046 → protocol 45
+    function_code: 4
+    data_type: "int16"
+    access: "read"
+    category: "sensor"
+    scale: 0.1
+    unit: "℃"
+
+polling_groups:
+  - name: "fast"
+    interval_seconds: 3
+    registers:
+      - "run_status"
+      - "fault_status"
+      - "run_message"
+      - "alarm_message"
+      - "fault_message"
+      - "chilled_inlet_temp"
+      - "chilled_outlet_temp"
+      - "cooling_inlet_temp"
+      - "cooling_outlet_temp"
+      - "control_valve_opening"
+
+  - name: "medium"
+    interval_seconds: 10
+    registers:
+      - "run_cmd"
+      - "stop_cmd"
+      - "extraction_pump_status"
+      - "combustion_status"
+      - "refrigerant_pump_status"
+      - "chilled_flow_status"
+      - "cooling_flow_status"
+      - "buzzer_status"
+      - "chilled_water_setpoint"
+      - "hot_water_setpoint"
+      - "condenser_refrig_temp"
+      - "high_temp_generator_temp"
+      - "low_chamber_pressure"
+      - "extraction_pressure"
+      - "chilled_water_flow"
+      - "cooling_water_flow"
+
+  - name: "slow"
+    interval_seconds: 60
+    registers:
+      - "hot_water_outlet_temp"
+      - "hot_water_inlet_temp"
+      - "low_temp_generator_temp"
+      - "evaporator_refrig_temp"
+      - "absorber_solution_temp"
+      - "exhaust_gas_temp"
+
+  - name: "history"
+    interval_seconds: 60
+    log_to_db: true
+    registers:
+      - "chilled_inlet_temp"
+      - "chilled_outlet_temp"
+      - "cooling_inlet_temp"
+      - "cooling_outlet_temp"
+      - "high_temp_generator_temp"
+      - "control_valve_opening"
