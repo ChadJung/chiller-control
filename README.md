@@ -134,3 +134,58 @@ chiller-control/
 | GET | `/api/alarms` | 알람 이력 |
 | GET | `/api/alarms/current` | 현재 알람 상태 |
 | WS | `/ws/realtime` | 실시간 WebSocket 스트림 |
+
+---
+
+## 현재 상태 & TODO (2026-06-03 현장 방문 기준)
+
+### 진행 중: 실기기 통신 디버깅 — "일산 대교빌딩" 냉동기
+
+현장 게이트웨이(`192.168.24.31:5000`, `rtu_over_tcp`)에 연결해 실사 테스트했으나,
+**데이터 수신은 아직 실패**. 현재까지 좁혀진 상태는 아래와 같음.
+
+**✅ 정상으로 확인된 것**
+- 네트워크 → 게이트웨이 TCP 연결 정상 (ping, 포트 5000/80 open)
+- **장비(D_CH60)까지 도달 확인** — Modbus exception 응답이 옴 (`0x82`/`0x81` 에코).
+  케이블 분리 시 응답이 사라지는 것으로 *장비 발신*임을 검증.
+- 본체 통신 설정: **Unit ID 1, Baud 19200, 8N1** (게이트웨이 설정과 일치)
+- 레지스터 맵 주소 변환(0-based)은 X30 매뉴얼(엑셀/PDF)과 정확히 일치
+
+**❌ 문제: 정상값(OK) 수신 0건**
+- 모든 주소가 `Illegal Data Address`(FC2) / `Illegal Function`(FC1) / timeout
+- 특히 `운전상태`(FC2 addr 0/1/2 = 10001~10003)가 모두 *Illegal Data Address*
+  → **0,1,2가 전부 없으므로 단순 off-by-one도 아님**
+- 통신이 간헐 불안정 (몇 요청 burst 후 연결 끊김, WinError 1236 재연결 거부)
+
+**핵심 의문:** 장비 화면 모델명은 **`D_CH60`**, 보유 문서는 **LGC-X30 / LSM-X30**.
+동일 계열이라면 맵이 같아야 하는데 OK가 0건 → 주소 오프셋 또는 다른 메모리맵 의심.
+
+### TODO (다음 작업 — 문서 탐독 + 프로토콜 디버깅)
+
+- [ ] `docs/X30 통신프로토콜*.xls` / `*.pdf` 정밀 재검토 — 주소 베이스/오프셋 가정 재확인
+- [ ] **D_CH60 ≠ LGC-X30 가능성** 조사 (별도 통신 프로토콜 문서 확보)
+- [ ] 전 주소 brute-force 스캔(FC1~4, 0~199)으로 **OK 나오는 주소 1개라도 탐색** → 오프셋 역산
+- [ ] **RTU framer ↔ Modbus-TCP(socket) framer** 비교 (게이트웨이 동작모드 영향 확인)
+- [ ] 통신 안정화: 재연결 간격(backoff)·timeout 튜닝, burst 후 끊김 원인 규명
+- [ ] 엑셀 `Message List` 시트(237개) 기반 운전/경보/이상 **메시지 코드 → 한글 디코딩** 맵 작성
+
+### 이번 세션에서 수정/추가한 것
+
+- **reconnect storm 버그 수정** — `modbus/client.py`에 `reconnect_delay=0`(pymodbus 자동재연결 끔),
+  `device_manager.stop_all()`을 async로 바꿔 소켓 close를 await (reload 시 좀비 연결 누적 방지)
+- **프론트엔드 API_BASE same-origin화** — `frontend/dist/index.html`의 `:8888` 하드코딩 제거
+  (백엔드가 서빙하는 포트로 자동 호출). 모델 드롭다운이 비던 문제 해결
+- **레지스터 맵 보강** — 엑셀 원본에만 있던 `30051 펌프 압력(AI1)`을 X30 맵에 추가
+- **X30 시뮬레이터 추가** — `backend/x30_simulator.py` (흡수식 사이클, RTU-over-TCP)
+
+### 진단 도구 (`backend/diag_*.py`)
+
+현장 디버깅용 단독 스크립트. 게이트웨이 IP/포트는 파일 상단 상수로 하드코딩.
+
+| 스크립트 | 용도 |
+|----------|------|
+| `diag_gateway.py` | framer(RTU/SOCKET) × unit_id 조합 프로브 |
+| `diag_sweep.py` | FC별 대표 주소 스윕 |
+| `diag_offset.py` | 0-based vs 1-based 주소 비교 |
+| `diag_quality.py` | FC2 주소 0~N 스윕 + 응답률(OK/EXC/TIMEOUT) 측정 |
+| `diag_cable.py` | 케이블 분리 검증 (응답이 장비 발신인지 확인) |

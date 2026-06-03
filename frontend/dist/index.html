@@ -655,8 +655,9 @@
     </div>
 
     <script>
-    const API_BASE = `${location.protocol}//${location.hostname}:8888`;
-    const WS_URL = `ws://${location.hostname}:8888/ws/realtime`;
+    // same-origin: 백엔드가 이 index.html을 서빙하므로 호스트/포트를 그대로 사용
+    const API_BASE = '';
+    const WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/realtime`;
 
     // State
     let ws = null;

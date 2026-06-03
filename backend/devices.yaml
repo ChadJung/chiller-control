@@ -1,12 +1,10 @@
 devices:
-- id: chiller-x30
-  name: '흡수식 냉동기 #1 (LGC-X30)'
-  name_ko: '흡수식 냉동기 #1 (LGC-X30)'
-  location: 기계실 A
-  register_map: register_maps/chiller-x30.yaml
+- id: 일산 대교빌딩
+  name: 냉동기
+  name_ko: 냉동기
+  location: B1
+  register_map: register_maps/일산 대교빌딩.yaml
   connection:
-    # NOTE: 실제 X30 게이트웨이 정보로 업데이트 필요 (현재는 기존 게이트웨이 설정 재사용)
-    # LGC-X30: Modbus RTU / RS485, 기본 19200 8N1 → 시리얼 게이트웨이 경유(rtu_over_tcp)
     mode: rtu_over_tcp
     tcp_host: 192.168.24.31
     tcp_port: 5000

@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # === Shutdown ===
-    dm.stop_all()
+    await dm.stop_all()
     logger.info("Server stopped")
 
 

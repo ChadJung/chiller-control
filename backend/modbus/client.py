@@ -70,6 +70,11 @@ class ModbusConnectionManager:
                 port=self._tcp_port,
                 timeout=self._timeout,
                 framer=framer,
+                # reconnect_delay=0 disables pymodbus' built-in auto-reconnect loop.
+                # Without this, a gateway that drops the connection (e.g. unresponsive
+                # RS-485 device) triggers a reconnect storm (hundreds of SYN/sec).
+                # Reconnect/backoff is handled explicitly in ensure_connected().
+                reconnect_delay=0,
             )
         else:  # rtu
             return AsyncModbusSerialClient(

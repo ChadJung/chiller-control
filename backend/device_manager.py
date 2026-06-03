@@ -133,20 +133,25 @@ class DeviceManager:
     async def reload(self):
         """Hot-reload: stop all devices, re-read config, restart."""
         logger.info("Hot-reloading devices...")
-        self.stop_all()
+        await self.stop_all()
         await asyncio.sleep(1)
         self._devices.clear()
         self.load_configs()
         await self.start_all()
         logger.info(f"Hot-reload complete: {self.device_count} devices")
 
-    def stop_all(self):
-        """Stop all device pollers and connections."""
+    async def stop_all(self):
+        """Stop all device pollers and connections. Awaits close so sockets
+        are actually torn down before we drop references (prevents leaked
+        clients that keep reconnecting after a reload)."""
         for device_id, inst in self._devices.items():
             if inst.poller:
                 inst.poller.stop()
             if inst.conn:
-                asyncio.create_task(inst.conn.close())
+                try:
+                    await inst.conn.close()
+                except Exception as e:
+                    logger.warning(f"Error closing connection for '{device_id}': {e}")
         logger.info("All devices stopped")
 
     def get_device(self, device_id: str) -> Optional[DeviceInstance]:
