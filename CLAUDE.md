@@ -65,5 +65,15 @@ SQLAlchemy async + aiosqlite. Three tables, all keyed by `device_id`: `register_
 
 - New chiller support → add a `register_maps/*.yaml` + a `models.yaml` entry. Don't add model-specific branches in Python.
 - Register IDs are semantic and relied on across layers — the dashboard summary, control, and parser all reference IDs like `supply_temp`, `setpoint_temp`, `power_command`, `operation_mode`, `alarm_code`, `compressor1_status`. Reuse these IDs in new maps so the existing UI/summary logic works without changes.
-- Modbus addresses in YAML are **0-based protocol addresses**, not manual addresses (manual coil N → N-1, holding register 4xxxx → addr-40001, etc.). The shipped maps document the conversion in comments.
+- Modbus addresses in YAML are **0-based protocol addresses**, not manual addresses. Manuals number registers 1-based per table; convert before putting them in YAML (the shipped maps document the conversion in comments):
+  - Coil: `manual_addr - 1`  · Discrete Input: `manual_addr - 10001`
+  - Input Register: `manual_addr - 30001`  · Holding Register: `manual_addr - 40001`
 - `register_count` is derived from `data_type` (32-bit types read 2 registers); set `data_type` correctly rather than hardcoding counts.
+- Code comments and commit messages in English; user-facing strings (API messages, `name_ko`) in Korean.
+- Async throughout (FastAPI, aiosqlite, pymodbus Async clients) — never block the event loop.
+
+## Config
+
+`backend/.env` (see `.env.example`), loaded by `config.py` (pydantic-settings). Per-device connection
+settings in `devices.yaml` **override** the global `MODBUS_*` defaults — the `.env` Modbus settings are
+largely legacy; real connections come from each device's `connection` block.
